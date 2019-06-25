@@ -92,15 +92,52 @@ public final class HackScanner implements Iterator<String>, Closeable {
     private Locale locale = null;
 
     // A cache of the last few recently used Patterns
-    private LRUCache<String,Pattern> patternCache =
-            new LRUCache<String,Pattern>(7) {
-                protected Pattern create(String s) {
-                    return Pattern.compile(s);
+    private PatternLRUCache patternCache = new PatternLRUCache(7);
+    private static class PatternLRUCache {
+
+        private Pattern[] oa = null;
+        private final int size;
+
+        PatternLRUCache(int size) {
+            this.size = size;
+        }
+
+        boolean hasName(Pattern p, String s) {
+            return p.pattern().equals(s);
+        }
+
+        void moveToFront(Object[] oa, int i) {
+            Object ob = oa[i];
+            for (int j = i; j > 0; j--)
+                oa[j] = oa[j - 1];
+            oa[0] = ob;
+        }
+
+        Pattern forName(String name) {
+            if (oa == null) {
+                Pattern[] temp = new Pattern[size];
+                oa = temp;
+            } else {
+                for (int i = 0; i < oa.length; i++) {
+                    Pattern ob = oa[i];
+                    if (ob == null)
+                        continue;
+                    if (hasName(ob, name)) {
+                        if (i > 0)
+                            moveToFront(oa, i);
+                        return ob;
+                    }
                 }
-                protected boolean hasName(Pattern p, String s) {
-                    return p.pattern().equals(s);
-                }
-            };
+            }
+
+            // Create a new object
+            Pattern ob = Pattern.compile(name);
+            oa[oa.length - 1] = ob;
+            moveToFront(oa, oa.length - 1);
+            return ob;
+        }
+    }
+          
 
     // A holder of the last IOException encountered
     private IOException lastException;
